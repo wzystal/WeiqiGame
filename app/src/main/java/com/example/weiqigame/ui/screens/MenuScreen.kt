@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -42,6 +45,9 @@ fun MenuScreen(
     onNavigateToLobby: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // 控制是否显示难度选择
+    var showDifficultySelector by remember { mutableStateOf(false) }
+
     Scaffold { paddingValues ->
         Box(
             modifier = modifier
@@ -77,24 +83,92 @@ fun MenuScreen(
                     modifier = Modifier.fillMaxWidth(0.8f),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // 人机对战 - 中等难度
+                    // 人机对战主按钮
                     Button(
-                        onClick = {
-                            gameViewModel.startAIGame(
-                                boardSize = 19,
-                                playerStone = BoardState.BLACK,
-                                difficulty = GoAI.Difficulty.MEDIUM
-                            )
-                            onNavigateToGame()
-                        },
+                        onClick = { showDifficultySelector = !showDifficultySelector },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
                     ) {
                         Text(
-                            text = "人机对战",
+                            text = if (showDifficultySelector) "人机对战 ▲" else "人机对战 ▼",
                             fontSize = 18.sp
                         )
+                    }
+
+                    // 难度选择器（展开状态）
+                    if (showDifficultySelector) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "选择难度",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(bottom = 4.dp)
+                                )
+
+                                // 简单
+                                OutlinedButton(
+                                    onClick = {
+                                        gameViewModel.startAIGame(
+                                            boardSize = 19,
+                                            playerStone = BoardState.BLACK,
+                                            difficulty = GoAI.Difficulty.EASY
+                                        )
+                                        onNavigateToGame()
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                ) {
+                                    Text("🌱 简单模式")
+                                }
+
+                                // 中等
+                                Button(
+                                    onClick = {
+                                        gameViewModel.startAIGame(
+                                            boardSize = 19,
+                                            playerStone = BoardState.BLACK,
+                                            difficulty = GoAI.Difficulty.MEDIUM
+                                        )
+                                        onNavigateToGame()
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("⚔️ 中等模式")
+                                }
+
+                                // 困难
+                                Button(
+                                    onClick = {
+                                        gameViewModel.startAIGame(
+                                            boardSize = 19,
+                                            playerStone = BoardState.BLACK,
+                                            difficulty = GoAI.Difficulty.HARD
+                                        )
+                                        onNavigateToGame()
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error
+                                    )
+                                ) {
+                                    Text("👑 困难模式")
+                                }
+                            }
+                        }
                     }
 
                     // 双人对战（本地）

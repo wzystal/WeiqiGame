@@ -53,9 +53,9 @@ fun GoBoard(
     val lineColor = Color(0xFF000000)    // 黑线
     val starPointColor = Color(0xFF000000) // 星位颜色
 
-    // 计算棋盘参数
+    // 计算棋盘参数（增大边距，让格子间距更大）
     val density = LocalDensity.current
-    val paddingPx = with(density) { 16.dp.toPx() }
+    val paddingPx = with(density) { 24.dp.toPx() }
 
     Box(
         modifier = modifier
@@ -143,7 +143,8 @@ private fun offsetToBoardCoordinate(
     val boardSizePx = width.coerceAtMost(height)
     val gridSize = (boardSizePx - 2 * paddingPx) / (boardSize - 1)
 
-    // 计算点击位置最近的交叉点
+    // 计算点击位置最近的交叉点（使用标准算法，确保精准）
+    // 四舍五入到最近的交叉点
     val x = ((offset.x - paddingPx + gridSize / 2) / gridSize).toInt()
         .coerceIn(0 until boardSize)
     val y = ((offset.y - paddingPx + gridSize / 2) / gridSize).toInt()
@@ -231,7 +232,7 @@ private fun DrawScope.drawStones(
     padding: Float,
     gridSize: Float
 ) {
-    val stoneRadius = gridSize * 0.48f
+    val stoneRadius = gridSize * 0.45f
 
     for (y in 0 until board.size) {
         for (x in 0 until board.size) {
@@ -285,7 +286,7 @@ private fun DrawScope.drawPreviewStone(
     padding: Float,
     gridSize: Float
 ) {
-    val stoneRadius = gridSize * 0.48f
+    val stoneRadius = gridSize * 0.45f
     val centerX = padding + x * gridSize
     val centerY = padding + y * gridSize
 

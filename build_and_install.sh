@@ -145,9 +145,10 @@ if ! adb devices | grep -q "device$"; then
     exit 1
 fi
 
-# 获取所有设备列表
-DEVICES=$(adb devices | grep "device$" | awk '{print $1}')
-DEVICE_COUNT=$(echo "$DEVICES" | wc -l | tr -d ' ')
+# 获取所有设备列表（处理设备名中包含空格的情况）
+# 删除行尾的空格和 "device" 字样，保留前面的设备ID
+DEVICES=$(adb devices | grep "device$" | sed 's/[[:space:]]*device$//')
+DEVICE_COUNT=$(echo "$DEVICES" | grep -c '.' | tr -d ' ')
 
 echo -e "${BLUE}检测到设备:${NC}"
 echo "$DEVICES" | sed 's/^/  - /'
@@ -161,22 +162,40 @@ INSTALL_FAILED=0
 echo -e "${BLUE}安装 APK 到 ${DEVICE_COUNT} 个设备${NC}"
 echo ""
 
-for DEVICE in $DEVICES; do
+# 创建临时文件用于在子 shell 中传递计数
+SUCCESS_FILE=$(mktemp)
+FAILED_FILE=$(mktemp)
+echo 0 > "$SUCCESS_FILE"
+echo 0 > "$FAILED_FILE"
+
+# 使用 while read 处理带空格的设备名
+echo "$DEVICES" | while IFS= read -r DEVICE; do
+    [ -z "$DEVICE" ] && continue  # 跳过空行
+
     echo -e "${BLUE}[${DEVICE}] 开始安装...${NC}"
 
     if adb -s "$DEVICE" install -r "$APK_PATH" 2>/dev/null; then
         echo -e "${GREEN}[${DEVICE}] 安装成功${NC}"
-        INSTALL_SUCCESS=$((INSTALL_SUCCESS + 1))
+        # 更新临时文件中的计数
+        CURRENT=$(cat "$SUCCESS_FILE")
+        echo $((CURRENT + 1)) > "$SUCCESS_FILE"
 
         # 启动应用
         adb -s "$DEVICE" shell am start -n "com.example.weiqigame/.MainActivity" 2>/dev/null
         echo -e "${BLUE}[${DEVICE}] 已启动应用${NC}"
     else
         echo -e "${RED}[${DEVICE}] 安装失败${NC}"
-        INSTALL_FAILED=$((INSTALL_FAILED + 1))
+        # 更新临时文件中的计数
+        CURRENT=$(cat "$FAILED_FILE")
+        echo $((CURRENT + 1)) > "$FAILED_FILE"
     fi
     echo ""
 done
+
+# 从临时文件读取最终计数
+INSTALL_SUCCESS=$(cat "$SUCCESS_FILE")
+INSTALL_FAILED=$(cat "$FAILED_FILE")
+rm -f "$SUCCESS_FILE" "$FAILED_FILE"
 
 # 汇总结果
 echo -e "${GREEN}========================================${NC}"

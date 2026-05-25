@@ -120,35 +120,47 @@ class GoAI(
     private fun evaluateMove(x: Int, y: Int, stone: Int, board: BoardState): Double {
         var score = 0.0
 
-        // 1. 基础位置价值（中心 > 边缘 > 角落）
-        score += evaluatePosition(x, y, board.size)
+        // 根据难度设置权重（简单/中等/困难）
+        val (attackWeight, defenseWeight, randomRange) = when (difficulty) {
+            Difficulty.EASY -> Triple(0.4, 0.3, -4.0 to 4.0)      // 简单：攻防都弱，随机大
+            Difficulty.MEDIUM -> Triple(0.9, 0.7, -2.0 to 2.0)  // 中等：攻防平衡，适度随机
+            Difficulty.HARD -> Triple(2.0, 1.8, -0.2 to 0.2)    // 困难：攻防极强，几乎无随机
+        }
 
-        // 2. 吃子价值
-        score += evaluateCapture(x, y, stone, board) * 10.0
+        // 1. 基础位置价值（所有难度都有）
+        score += evaluatePosition(x, y, board.size) * 1.0
 
-        // 3. 连接价值（与己方棋子相连）
+        // 2. 吃子价值（进攻）
+        score += evaluateCapture(x, y, stone, board) * 12.0 * attackWeight
+
+        // 3. 追杀价值（进攻：追杀对方弱棋）
+        score += evaluateHunt(x, y, stone, board) * 15.0 * attackWeight
+
+        // 4. 分断价值（进攻：切断对方）
+        score += evaluateCut(x, y, stone, board) * 6.0 * attackWeight
+
+        // 5. 逃子价值（防守：拯救己方弱棋）
+        score += evaluateEscape(x, y, stone, board) * 12.0 * defenseWeight
+
+        // 6. 气数保护（防守：避免走死棋）
+        score += evaluateLibertyProtection(x, y, stone, board) * 5.0 * defenseWeight
+
+        // 7. 避免孤棋（防守）
+        score -= evaluateWeakness(x, y, stone, board) * 4.0 * defenseWeight
+
+        // 8. 连接价值（基础）
         score += evaluateConnection(x, y, stone, board) * 2.0
 
-        // 4. 分断价值（切断对方棋子）
-        score += evaluateCut(x, y, stone, board) * 3.0
-
-        // 5. 眼位价值
+        // 9. 眼位价值（基础）
         score += evaluateEyePotential(x, y, stone, board) * 1.5
 
-        // 6. 避免孤棋
-        score -= evaluateWeakness(x, y, stone, board) * 2.0
-
-        // 7. 打劫相关（简化处理：避免主动打劫）
+        // 10. 打劫相关
         if (isKoRisk(x, y, stone)) {
-            score -= 5.0
+            score -= 5.0 * defenseWeight  // 困难模式更谨慎对待打劫
         }
 
         // 添加随机扰动（不同难度扰动程度不同）
-        val noise = when (difficulty) {
-            Difficulty.EASY -> Random.nextDouble(-2.0, 2.0)
-            Difficulty.MEDIUM -> Random.nextDouble(-1.0, 1.0)
-            Difficulty.HARD -> Random.nextDouble(-0.5, 0.5)
-        }
+        val noise = Random.nextDouble(randomRange.first, randomRange.second)
         score += noise
 
         return score
@@ -265,12 +277,87 @@ class GoAI(
     }
 
     /**
+     * 评估追杀价值（攻击对方只剩1-2气的弱棋）
+     */
+    private fun evaluateHunt(x: Int, y: Int, stone: Int, board: BoardState): Double {
+        val opponent = if (stone == BoardState.BLACK) BoardState.WHITE else BoardState.BLACK
+        val directions = listOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1)
+        var huntValue = 0.0
+
+        for ((dx, dy) in directions) {
+            val nx = x + dx
+            val ny = y + dy
+
+            // 检查相邻的对方棋子
+            if (board.isValidPosition(nx, ny) && board.get(nx, ny) == opponent) {
+                val liberties = countLiberties(nx, ny, opponent, board)
+                val groupSize = countGroupSize(nx, ny, opponent, board)
+
+                if (liberties == 1) {
+                    // 绝杀：对方只剩1气，此落子能提子，价值极高
+                    huntValue += groupSize * 5.0
+                } else if (liberties == 2) {
+                    // 追杀：对方只剩2气，继续压迫
+                    huntValue += groupSize * 2.0
+                }
+            }
+        }
+
+        return huntValue
+    }
+
+    /**
+     * 评估逃子价值（拯救己方只剩1-2气的弱棋）
+     */
+    private fun evaluateEscape(x: Int, y: Int, stone: Int, board: BoardState): Double {
+        val directions = listOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1)
+        var escapeValue = 0.0
+
+        for ((dx, dy) in directions) {
+            val nx = x + dx
+            val ny = y + dy
+
+            // 检查相邻的己方棋子
+            if (board.isValidPosition(nx, ny) && board.get(nx, ny) == stone) {
+                // 计算这个棋块的气数
+                val liberties = countLiberties(nx, ny, stone, board)
+                val groupSize = countGroupSize(nx, ny, stone, board)
+
+                if (liberties == 1) {
+                    // 紧急：邻块只剩1气，被提风险极高，此落子能救则价值极高
+                    escapeValue += groupSize * 3.0
+                } else if (liberties == 2) {
+                    // 警告：邻块只剩2气，需要保护
+                    escapeValue += groupSize * 1.5
+                }
+            }
+        }
+
+        return escapeValue
+    }
+
+    /**
+     * 评估气数保护（确保落子后己方棋子有足够气数）
+     */
+    private fun evaluateLibertyProtection(x: Int, y: Int, stone: Int, board: BoardState): Double {
+        // 计算落子后形成的新棋块的气数
+        val newLiberties = countLibertiesAfterMove(x, y, stone, board)
+
+        return when {
+            newLiberties >= 4 -> 2.0  // 气很足，安全
+            newLiberties == 3 -> 1.0  // 气够用
+            newLiberties == 2 -> -1.0 // 气少，有点危险
+            else -> -3.0              // 只有1气，极危险
+        }
+    }
+
+    /**
      * 评估弱点（孤棋风险）
      */
     private fun evaluateWeakness(x: Int, y: Int, stone: Int, board: BoardState): Double {
         // 检查落子后自己的气数
         val tempLiberties = countLibertiesAfterMove(x, y, stone, board)
-        return if (tempLiberties <= 1) 3.0 else 0.0
+        return if (tempLiberties <= 1) 5.0 else 0.0  // 增加惩罚权重
     }
 
     /**
