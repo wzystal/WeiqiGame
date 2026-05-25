@@ -42,11 +42,14 @@ else
 
     NEED_COMPILE=false
 
-    # 1. 检查是否有未提交的改动
+    # 1. 检查是否有影响编译的源文件改动（排除脚本文件本身）
     if [ -d "$PROJECT_DIR/.git" ]; then
-        # 检查工作区是否有未提交的修改
-        if ! git diff --quiet HEAD -- 2>/dev/null; then
-            echo -e "${YELLOW}检测到未提交的代码改动${NC}"
+        # 获取改动的文件列表，只检查会影响APK编译的文件类型
+        changed_source_files=$(git diff --name-only HEAD 2>/dev/null | grep -E '\.(kt|xml|gradle|kts|properties|md)$' | head -5)
+        if [ -n "$changed_source_files" ]; then
+            echo -e "${YELLOW}检测到源代码改动${NC}"
+            echo -e "${YELLOW}改动文件:${NC}"
+            echo "$changed_source_files" | sed 's/^/  - /'
             NEED_COMPILE=true
         fi
 
@@ -61,10 +64,12 @@ else
             # 获取 APK 最后修改时间
             APK_MTIME=$(stat -c %Y "$APK_PATH" 2>/dev/null || stat -f %m "$APK_PATH" 2>/dev/null)
 
-            # 检查源文件是否比 APK 新
+            # 使用 git ls-files 获取被跟踪的源文件（自动排除 .gitignore 中的文件）
             for ext in "${CHECK_EXTENSIONS[@]}"; do
-                # 使用 find 查找比 APK 新的文件
-                newer_files=$(find "$PROJECT_DIR" -name "$ext" -newer "$APK_PATH" -not -path "*/build/*" -not -path "*/.git/*" -not -path "*/.gradle/*" 2>/dev/null | head -5)
+                # 查找比 APK 新的已跟踪文件
+                newer_files=$(git ls-files -z "$PROJECT_DIR" 2>/dev/null | \
+                    xargs -0 -I {} sh -c 'if [ -f "{}" ] && [ "{}" -nt "$1" ]; then echo "{}"; fi' _ "$APK_PATH" 2>/dev/null | \
+                    grep -E "\\.${ext#\\*\\.}$" | head -5)
 
                 if [ -n "$newer_files" ]; then
                     echo -e "${YELLOW}检测到源文件比 APK 新，需要重新编译${NC}"
