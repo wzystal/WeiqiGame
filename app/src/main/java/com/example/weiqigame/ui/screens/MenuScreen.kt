@@ -15,6 +15,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.clickable
+import com.example.weiqigame.domain.ai.GoAI
+import com.example.weiqigame.domain.model.BoardState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -70,10 +77,14 @@ fun MenuScreen(
                     modifier = Modifier.fillMaxWidth(0.8f),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // 单机对战
+                    // 人机对战 - 中等难度
                     Button(
                         onClick = {
-                            gameViewModel.startLocalGame()
+                            gameViewModel.startAIGame(
+                                boardSize = 19,
+                                playerStone = BoardState.BLACK,
+                                difficulty = GoAI.Difficulty.MEDIUM
+                            )
                             onNavigateToGame()
                         },
                         modifier = Modifier
@@ -81,33 +92,49 @@ fun MenuScreen(
                             .height(56.dp)
                     ) {
                         Text(
-                            text = "单机对战",
+                            text = "人机对战",
                             fontSize = 18.sp
+                        )
+                    }
+
+                    // 双人对战（本地）
+                    OutlinedButton(
+                        onClick = {
+                            gameViewModel.startLocalGame()
+                            onNavigateToGame()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Text(
+                            text = "双人对战",
+                            fontSize = 16.sp
                         )
                     }
 
                     // 局域网联机
-                    Button(
+                    OutlinedButton(
                         onClick = onNavigateToLobby,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp)
+                            .height(48.dp)
                     ) {
                         Text(
                             text = "局域网联机",
-                            fontSize = 18.sp
+                            fontSize = 16.sp
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // 规则说明（可扩展）
-                    OutlinedButton(
-                        onClick = { /* 打开规则说明 */ },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("围棋规则")
-                    }
+                    // 规则说明
+                    Text(
+                        text = "游戏规则",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { /* 打开规则说明 */ }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(48.dp))

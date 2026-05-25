@@ -203,10 +203,17 @@ class GameManager(
     }
 
     /**
-     * 获取禁着点原因
+     * 获取禁着点原因（检查当前回合）
      */
     fun getForbiddenReason(x: Int, y: Int): String? {
-        return ruleEngine.isForbiddenPoint(board, x, y, currentTurn, history)?.let {
+        return getForbiddenReason(x, y, currentTurn)
+    }
+
+    /**
+     * 获取禁着点原因（检查指定颜色）
+     */
+    fun getForbiddenReason(x: Int, y: Int, stone: Int): String? {
+        return ruleEngine.isForbiddenPoint(board, x, y, stone, history)?.let {
             when (it) {
                 com.example.weiqigame.domain.logic.InvalidReason.SUICIDE -> "禁着点：自杀步"
                 com.example.weiqigame.domain.logic.InvalidReason.KO -> "禁着点：打劫"

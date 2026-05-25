@@ -145,29 +145,53 @@ if ! adb devices | grep -q "device$"; then
     exit 1
 fi
 
+# 获取所有设备列表
+DEVICES=$(adb devices | grep "device$" | awk '{print $1}')
+DEVICE_COUNT=$(echo "$DEVICES" | wc -l | tr -d ' ')
+
 echo -e "${BLUE}检测到设备:${NC}"
-adb devices | grep "device$" | sed 's/^/  /'
+echo "$DEVICES" | sed 's/^/  - /'
 echo ""
 
-# 执行安装
-echo -e "${BLUE}安装 APK: $APK_PATH${NC}"
-if adb install -r "$APK_PATH"; then
-    echo ""
-    echo -e "${GREEN}========================================${NC}"
-    echo -e "${GREEN}  安装成功！${NC}"
-    echo -e "${GREEN}========================================${NC}"
+# 安装成功计数
+INSTALL_SUCCESS=0
+INSTALL_FAILED=0
 
-    # 启动应用
+# 执行安装到所有设备
+echo -e "${BLUE}安装 APK 到 ${DEVICE_COUNT} 个设备${NC}"
+echo ""
+
+for DEVICE in $DEVICES; do
+    echo -e "${BLUE}[${DEVICE}] 开始安装...${NC}"
+
+    if adb -s "$DEVICE" install -r "$APK_PATH" 2>/dev/null; then
+        echo -e "${GREEN}[${DEVICE}] 安装成功${NC}"
+        INSTALL_SUCCESS=$((INSTALL_SUCCESS + 1))
+
+        # 启动应用
+        adb -s "$DEVICE" shell am start -n "com.example.weiqigame/.MainActivity" 2>/dev/null
+        echo -e "${BLUE}[${DEVICE}] 已启动应用${NC}"
+    else
+        echo -e "${RED}[${DEVICE}] 安装失败${NC}"
+        INSTALL_FAILED=$((INSTALL_FAILED + 1))
+    fi
     echo ""
-    echo -e "${BLUE}启动应用...${NC}"
-    adb shell am start -n "com.example.weiqigame/.MainActivity"
-else
+done
+
+# 汇总结果
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}  安装完成${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo ""
+echo -e "成功: ${INSTALL_SUCCESS} 个设备"
+echo -e "失败: ${INSTALL_FAILED} 个设备"
+
+if [ "$INSTALL_SUCCESS" -eq 0 ]; then
     echo ""
-    echo -e "${RED}========================================${NC}"
-    echo -e "${RED}  安装失败${NC}"
-    echo -e "${RED}========================================${NC}"
+    echo -e "${RED}所有设备安装失败${NC}"
     exit 1
 fi
 
 echo ""
 echo -e "${GREEN}完成！${NC}"
+echo ""

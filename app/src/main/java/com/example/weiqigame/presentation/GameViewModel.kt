@@ -10,6 +10,7 @@ import com.example.weiqigame.domain.model.GameMode
 import com.example.weiqigame.domain.model.GameStatus
 import com.example.weiqigame.domain.usecase.MoveResult
 import com.example.weiqigame.domain.logic.ScoreResult
+import com.example.weiqigame.domain.ai.GoAI
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,15 @@ import kotlinx.coroutines.withContext
 class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = GameRepository()
+
+    // AI 相关
+    private var ai: GoAI? = null
+    private var aiStone: Int = BoardState.WHITE  // 默认 AI 执白
+    private var isAIGame: Boolean = false
+
+    // AI 思考状态
+    private val _isAIThinking = MutableStateFlow(false)
+    val isAIThinking: StateFlow<Boolean> = _isAIThinking.asStateFlow()
 
     // ========== UI 状态 ==========
 
@@ -99,8 +109,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "黑方回合")
 
+    // 本地错误/提示信息（用于 AI 对战等本地逻辑）
+    private val _localError = MutableStateFlow<String?>(null)
+    val localError: StateFlow<String?> = _localError.asStateFlow()
+
     /**
-     * 最后错误/提示信息
+     * 最后错误/提示信息（优先使用 repository 的）
      */
     val errorMessage: StateFlow<String?> = repository.lastError
 
@@ -114,10 +128,74 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     // ========== 用户操作 ==========
 
     /**
-     * 开始本地单机游戏
+     * 开始本地单机游戏（双人对弈）
      */
     fun startLocalGame(boardSize: Int = 19) {
+        isAIGame = false
+        ai = null
         repository.startLocalGame(boardSize)
+    }
+
+    /**
+     * 开始人机对战
+     *
+     * @param boardSize 棋盘大小
+     * @param playerStone 玩家执棋颜色 (BLACK/WHITE)，默认玩家执黑
+     * @param difficulty AI 难度 (EASY/MEDIUM/HARD)
+     */
+    fun startAIGame(
+        boardSize: Int = 19,
+        playerStone: Int = BoardState.BLACK,
+        difficulty: GoAI.Difficulty = GoAI.Difficulty.MEDIUM
+    ) {
+        isAIGame = true
+        aiStone = if (playerStone == BoardState.BLACK) BoardState.WHITE else BoardState.BLACK
+
+        repository.startLocalGame(boardSize)
+
+        // 创建 AI 实例
+        ai = GoAI(repository.gameManager, difficulty)
+
+        // 如果 AI 执黑，AI 先手
+        if (aiStone == BoardState.BLACK) {
+            triggerAIMove()
+        }
+    }
+
+    /**
+     * 触发 AI 落子
+     */
+    private fun triggerAIMove() {
+        if (!isAIGame || gameStatus.value != GameStatus.PLAYING) return
+
+        val currentTurn = repository.currentTurn.value
+        if (currentTurn != aiStone) return  // 不是 AI 回合
+
+        viewModelScope.launch(Dispatchers.Default) {
+            _isAIThinking.value = true
+
+            try {
+                val aiInstance = ai ?: return@launch
+                val move = aiInstance.makeMove(aiStone)
+
+                withContext(Dispatchers.Main) {
+                    if (move != null) {
+                        val (x, y) = move
+                        // AI 落子
+                        repository.makeMove(x, y)
+                    } else {
+                        // AI 无处可下，认输
+                        _localError.value = "AI 认输，你获胜了！"
+                        repository.calculateFinalScore()
+                    }
+                }
+            } catch (e: Exception) {
+                // AI 出错，不阻塞游戏
+                e.printStackTrace()
+            } finally {
+                _isAIThinking.value = false
+            }
+        }
     }
 
     /**
@@ -137,6 +215,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         // 尝试落子（在 IO 线程执行）
         val result = withContext(Dispatchers.IO) {
             repository.makeMove(x, y)
+        }
+
+        // 如果是对战 AI 且落子成功，触发 AI 思考
+        if (result is MoveResult.Success && isAIGame) {
+            triggerAIMove()
         }
 
         return when (result) {

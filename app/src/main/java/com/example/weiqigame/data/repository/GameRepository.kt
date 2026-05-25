@@ -29,7 +29,7 @@ import kotlinx.coroutines.withContext
  * 向上层提供游戏状态、棋盘数据、网络连接等数据的观察接口。
  */
 class GameRepository(
-    private val gameManager: GameManager = GameManager(),
+    val gameManager: GameManager = GameManager(),
     private val tcpConnection: TcpGameConnection = TcpGameConnection(),
     private val externalScope: CoroutineScope = CoroutineScope(Dispatchers.Default)
 ) {
