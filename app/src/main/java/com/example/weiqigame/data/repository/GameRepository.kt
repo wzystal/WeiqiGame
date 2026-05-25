@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.util.Log
 
 /**
  * 游戏仓库
@@ -100,7 +101,12 @@ class GameRepository(
      * 开始本地单机游戏
      */
     fun startLocalGame(boardSize: Int = 19) {
+        // 断开网络连接（如果之前有联机连接）
+        tcpConnection.disconnect()
+        _myStone.value = null
+        _gameMode.value = GameMode.LOCAL
         gameManager.startNewGame(GameMode.LOCAL, boardSize)
+        _gameStatus.value = GameStatus.PLAYING
         updateGameState()
     }
 
@@ -111,7 +117,10 @@ class GameRepository(
         // 网络模式下检查是否轮到自己
         if (_gameMode.value != GameMode.LOCAL) {
             val myColor = _myStone.value
-            if (myColor == null || gameManager.currentPlayerStone != myColor) {
+            // 使用 gameManager.currentPlayerStone 作为唯一真实来源
+            val currentTurn = gameManager.currentPlayerStone
+            if (myColor == null || currentTurn != myColor) {
+                Log.d("GameRepository", "makeMove被拒绝: myColor=$myColor, currentTurn=$currentTurn")
                 return MoveResult.Error("不是你的回合")
             }
         }
@@ -228,6 +237,11 @@ class GameRepository(
         withContext(Dispatchers.IO) {
             tcpConnection.sendMessage(GoMessage.Ready(opponentColor, boardSize))
         }
+
+        // 主机也要初始化自己的游戏状态（因为主机不会收到自己发送的消息）
+        gameManager.startNewGame(_gameMode.value, boardSize)
+        _gameStatus.value = GameStatus.PLAYING
+        updateGameState()
     }
 
     /**
@@ -235,6 +249,7 @@ class GameRepository(
      */
     fun disconnect() {
         tcpConnection.disconnect()
+        _myStone.value = null
         if (_gameStatus.value == GameStatus.PLAYING) {
             _gameStatus.value = GameStatus.IDLE
         }
@@ -256,8 +271,8 @@ class GameRepository(
                 // 收到准备消息，初始化游戏
                 gameManager.startNewGame(_gameMode.value, message.boardSize)
                 _myStone.value = message.assignedColor
-                updateGameState()
                 _gameStatus.value = GameStatus.PLAYING
+                updateGameState()
             }
 
             is GoMessage.Resign -> {
@@ -286,31 +301,51 @@ class GameRepository(
      * 处理对方落子
      */
     private fun handleOpponentMove(message: GoMessage.Move) {
-        // 构造 Move 对象，但不执行验证（因为是对方的落子）
-        val move = Move(message.x, message.y, message.stone, message.sequence, message.captureCount)
+        Log.d("GameRepository", "收到对方落子: (${message.x}, ${message.y}), stone=${message.stone}, seq=${message.sequence}")
 
-        // 直接在棋盘执行落子
-        val board = gameManager.getBoardRef()
-        board.set(move.x, move.y, move.stone)
+        // 验证落子颜色是否与当前回合匹配
+        val currentTurn = gameManager.currentPlayerStone
+        if (message.stone != currentTurn) {
+            Log.e("GameRepository", "回合验证失败：消息stone=${message.stone}, 当前回合=$currentTurn")
+            _lastError.value = "回合同步错误：对方在错误的回合落子"
+            return
+        }
 
-        // 如果有提子，移除被提棋子
-        // 这里简化处理，实际应该复用游戏管理器的提子逻辑
-        // 但为了确保规则一致性，应该重新设计
+        // 使用 gameManager.makeMove 进行完整的规则验证和落子
+        val result = gameManager.makeMove(message.x, message.y)
 
-        // 更新状态
-        updateGameState()
+        when (result) {
+            is MoveResult.Success -> {
+                Log.d("GameRepository", "对方落子成功，提子数: ${result.capturedStones.size}")
+                // makeMove 已经自动切换了回合，updateGameState 会同步到 repository
+                updateGameState()
+            }
+            is MoveResult.Error -> {
+                Log.e("GameRepository", "对方落子验证失败: ${result.message}")
+                _lastError.value = "对方落子无效: ${result.message}"
+            }
+        }
     }
 
     /**
-     * 更新游戏状态流
+     * 更新游戏状态流（同步GameManager状态到Repository）
      */
     private fun updateGameState() {
-        _gameStatus.value = gameManager.gameStatus
+        // 始终从 GameManager 同步 currentTurn，确保状态一致
         _currentTurn.value = gameManager.currentPlayerStone
+
         _board.value = gameManager.getBoard()
-        // 标准围棋术语：黑提子 = 黑方吃掉的白子数，白提子 = 白方吃掉的黑子数
-        _blackCaptured.value = gameManager.getCaptureCount(BoardState.WHITE)   // 黑方提子数
-        _whiteCaptured.value = gameManager.getCaptureCount(BoardState.BLACK)   // 白方提子数
+
+        // 只在非PLAYING状态下同步gameStatus，避免覆盖联机模式的状态设置
+        if (_gameStatus.value != GameStatus.PLAYING) {
+            _gameStatus.value = gameManager.gameStatus
+        }
+
+        // 同步提子数（getCaptureCount返回的是该颜色吃掉的对方棋子数）
+        // blackCaptured = 黑方吃掉的白子数 = getCaptureCount(WHITE)
+        // whiteCaptured = 白方吃掉的黑子数 = getCaptureCount(BLACK)
+        _blackCaptured.value = gameManager.getCaptureCount(BoardState.WHITE)   // 黑提子数
+        _whiteCaptured.value = gameManager.getCaptureCount(BoardState.BLACK)   // 白提子数
 
         // 实时更新当前局势
         _currentScore.value = gameManager.calculateScore()

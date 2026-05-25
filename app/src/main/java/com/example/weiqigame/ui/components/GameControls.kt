@@ -51,7 +51,7 @@ fun GameControls(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)  // 减小垂直padding
     ) {
         // 回合指示和提示
         Row(
@@ -70,7 +70,7 @@ fun GameControls(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // 提子统计
         Row(
@@ -89,7 +89,7 @@ fun GameControls(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // 实时局势显示
         if (currentScore != null && gameStatus == GameStatus.PLAYING) {
@@ -102,8 +102,6 @@ fun GameControls(
             Spacer(modifier = Modifier.height(8.dp))
             FinalScoreCard(score = currentScore)
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         // 提前结算按钮（只在游戏进行中显示）
         if (gameStatus == GameStatus.PLAYING) {

@@ -35,8 +35,9 @@ class TcpGameConnection {
 
     companion object {
         private const val TAG = "TcpGameConnection"
-        private const val HEARTBEAT_INTERVAL = 30000L  // 30秒
-        private const val CONNECTION_TIMEOUT = 10000   // 10秒
+        private const val HEARTBEAT_INTERVAL = 10000L  // 10秒心跳，防止连接断开
+        private const val CONNECTION_TIMEOUT = 15000   // 15秒连接超时
+        private const val SOCKET_TIMEOUT = 60000       // 60秒Socket读取超时
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -93,8 +94,12 @@ class TcpGameConnection {
                 socket = serverSocket!!.accept()
                 Log.i(TAG, "客户端已连接：${socket!!.inetAddress}")
 
-                // 设置超时
-                socket!!.soTimeout = CONNECTION_TIMEOUT
+                // 配置Socket：启用KeepAlive防止连接断开
+                socket!!.apply {
+                    soTimeout = SOCKET_TIMEOUT
+                    keepAlive = true
+                    tcpNoDelay = true
+                }
 
                 isConnected.set(true)
                 _connectionState.value = ConnectionState.CONNECTED
@@ -136,6 +141,13 @@ class TcpGameConnection {
             try {
                 socket = Socket(hostAddress, port)
                 Log.i(TAG, "已连接到主机：${hostAddress.hostAddress}:$port")
+
+                // 配置Socket：启用KeepAlive防止连接断开
+                socket!!.apply {
+                    soTimeout = SOCKET_TIMEOUT
+                    keepAlive = true
+                    tcpNoDelay = true
+                }
 
                 isConnected.set(true)
                 _connectionState.value = ConnectionState.CONNECTED

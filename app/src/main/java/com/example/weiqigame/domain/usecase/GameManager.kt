@@ -163,6 +163,13 @@ class GameManager(
     }
 
     /**
+     * 手动切换回合（用于联机模式）
+     */
+    fun switchTurn() {
+        currentTurn = board.getOpponent(currentTurn)
+    }
+
+    /**
      * 获取当前棋盘状态（只读访问）
      */
     fun getBoard(): BoardState = board.copy()
@@ -188,6 +195,10 @@ class GameManager(
      * 预览指定位置的落子效果
      */
     fun previewMove(x: Int, y: Int): List<Pair<Int, Int>> {
+        // 检查游戏是否已初始化
+        if (gameStatus == GameStatus.IDLE || !this::board.isInitialized) {
+            return emptyList()
+        }
         if (!board.isValidPosition(x, y) || !board.isEmpty(x, y)) {
             return emptyList()
         }

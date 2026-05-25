@@ -53,9 +53,9 @@ fun GoBoard(
     val lineColor = Color(0xFF000000)    // 黑线
     val starPointColor = Color(0xFF000000) // 星位颜色
 
-    // 计算棋盘参数（增大边距，让格子间距更大）
+    // 计算棋盘参数（边距适中，格子要大便于点击）
     val density = LocalDensity.current
-    val paddingPx = with(density) { 24.dp.toPx() }
+    val paddingPx = with(density) { 16.dp.toPx() }
 
     Box(
         modifier = modifier
@@ -66,7 +66,7 @@ fun GoBoard(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(isMyTurn) {
+                .pointerInput(Unit) {
                     detectTapGestures(
                         onPress = { offset ->
                             if (!isMyTurn) return@detectTapGestures
@@ -86,8 +86,6 @@ fun GoBoard(
                             }
                         },
                         onTap = { offset ->
-                            if (!isMyTurn) return@detectTapGestures
-
                             val (x, y) = offsetToBoardCoordinate(
                                 offset,
                                 size.width.toFloat(),

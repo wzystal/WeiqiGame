@@ -1,6 +1,7 @@
 package com.example.weiqigame.presentation
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.weiqigame.data.remote.ConnectionState
@@ -41,6 +42,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     // AI 思考状态
     private val _isAIThinking = MutableStateFlow(false)
     val isAIThinking: StateFlow<Boolean> = _isAIThinking.asStateFlow()
+
+    // 是否是 AI 对战模式（用于 UI 显示）
+    private val _isAIGameMode = MutableStateFlow(false)
+    val isAIGameMode: StateFlow<Boolean> = _isAIGameMode.asStateFlow()
+
+    // AI 难度等级（用于 UI 显示）
+    private val _aiDifficulty = MutableStateFlow(GoAI.Difficulty.MEDIUM)
+    val aiDifficulty: StateFlow<GoAI.Difficulty> = _aiDifficulty.asStateFlow()
 
     // ========== UI 状态 ==========
 
@@ -132,6 +141,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun startLocalGame(boardSize: Int = 19) {
         isAIGame = false
+        _isAIGameMode.value = false
         ai = null
         repository.startLocalGame(boardSize)
     }
@@ -149,6 +159,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         difficulty: GoAI.Difficulty = GoAI.Difficulty.MEDIUM
     ) {
         isAIGame = true
+        _isAIGameMode.value = true
+        _aiDifficulty.value = difficulty
         aiStone = if (playerStone == BoardState.BLACK) BoardState.WHITE else BoardState.BLACK
 
         repository.startLocalGame(boardSize)
@@ -203,12 +215,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
      */
     suspend fun onBoardClick(x: Int, y: Int): String? {
         // 检查是否在游戏状态
-        if (gameStatus.value != GameStatus.PLAYING) {
+        val currentStatus = gameStatus.value
+        if (currentStatus != GameStatus.PLAYING) {
             return "游戏未开始"
         }
 
         // 检查是否轮到本地玩家
-        if (!isMyTurn.value) {
+        val myStone = repository.myStone.value
+        val gameManagerTurn = repository.gameManager.currentPlayerStone
+
+        // 直接使用 gameManager.currentTurn 进行判断
+        if (myStone != null && gameManagerTurn != myStone) {
             return "等待对方落子"
         }
 
@@ -289,11 +306,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
      * 创建房间（作为主机）
      */
     fun createRoom(onReady: () -> Unit = {}) {
+        Log.d("GameViewModel", "Host: Creating room...")
         repository.startAsHost {
             viewModelScope.launch(Dispatchers.IO) {
+                Log.d("GameViewModel", "Host: Client connected, sending ready message...")
                 // 等待连接后发送准备消息
                 repository.sendReadyMessage()
+                Log.d("GameViewModel", "Host: Ready message sent, gameStatus=${repository.gameStatus.value}")
                 withContext(Dispatchers.Main) {
+                    Log.d("GameViewModel", "Host: Navigating to game screen")
                     onReady()
                 }
             }

@@ -17,8 +17,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,9 +58,15 @@ fun GameScreen(
     val playerHint by viewModel.playerHint.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val localError by viewModel.localError.collectAsState()
     val previewPosition by viewModel.previewPosition.collectAsState()
     val previewCaptures by viewModel.previewCaptures.collectAsState()
+    val isAIGameMode by viewModel.isAIGameMode.collectAsState()
+    val aiDifficulty by viewModel.aiDifficulty.collectAsState()
     val scope = rememberCoroutineScope()
+
+    // 点击错误提示（用于显示非回合落子等错误）
+    var clickError by remember { mutableStateOf<String?>(null) }
 
     // 显示错误提示
     LaunchedEffect(errorMessage) {
@@ -68,7 +76,23 @@ fun GameScreen(
         }
     }
 
-    // 网络连接断开时返回菜单
+    // 显示本地错误提示
+    LaunchedEffect(localError) {
+        localError?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearError()
+        }
+    }
+
+    // 显示点击错误提示
+    LaunchedEffect(clickError) {
+        clickError?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            clickError = null
+        }
+    }
+
+    // 网络连接断开时返回菜单（仅被动断开时触发）
     LaunchedEffect(connectionState, gameMode) {
         if (gameMode != GameMode.LOCAL && connectionState == ConnectionState.DISCONNECTED) {
             if (gameStatus == GameStatus.PLAYING) {
@@ -82,13 +106,21 @@ fun GameScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = when (gameMode) {
-                            GameMode.LOCAL -> "单机对战"
-                            GameMode.ONLINE_HOST -> "局域网对战（主机）"
-                            GameMode.ONLINE_CLIENT -> "局域网对战（客户端）"
+                    val titleText = when (gameMode) {
+                        GameMode.LOCAL -> if (isAIGameMode) {
+                            val difficultyText = when (aiDifficulty) {
+                                com.example.weiqigame.domain.ai.GoAI.Difficulty.EASY -> "简单"
+                                com.example.weiqigame.domain.ai.GoAI.Difficulty.MEDIUM -> "中等"
+                                com.example.weiqigame.domain.ai.GoAI.Difficulty.HARD -> "困难"
+                            }
+                            "人机对战（$difficultyText）"
+                        } else {
+                            "双人对战"
                         }
-                    )
+                        GameMode.ONLINE_HOST -> "局域网对战（主机）"
+                        GameMode.ONLINE_CLIENT -> "局域网对战（客户端）"
+                    }
+                    Text(text = titleText)
                 },
                 navigationIcon = {
                     // 可以添加返回按钮
@@ -100,6 +132,7 @@ fun GameScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .padding(top = 32.dp)  // 增大顶部间距，确保棋盘不被标题栏遮挡
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -127,32 +160,57 @@ fun GameScreen(
                         }
                     }
                 } else {
-                    // 棋盘
-                    GoBoard(
-                        board = board,
-                        currentStone = currentTurn,
-                        previewPosition = previewPosition,
-                        previewCaptures = previewCaptures,
-                        isMyTurn = isMyTurn,
+                    // 棋盘（填满可用空间，设置最小高度确保显示完整）
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .padding(16.dp),
-                        onBoardClick = { x, y ->
-                            scope.launch {
-                                val error = viewModel.onBoardClick(x, y)
-                                error?.let {
-                                    Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                    ) {
+                        GoBoard(
+                            board = board,
+                            currentStone = currentTurn,
+                            previewPosition = previewPosition,
+                            previewCaptures = previewCaptures,
+                            isMyTurn = isMyTurn,
+                            modifier = Modifier.fillMaxSize(),
+                            onBoardClick = { x, y ->
+                                scope.launch {
+                                    val error = viewModel.onBoardClick(x, y)
+                                    error?.let {
+                                        // 同时设置 Toast 和状态变量
+                                        Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+                                        clickError = it
+                                    }
                                 }
+                            },
+                            onPreviewChange = { x, y ->
+                                viewModel.onPreviewPosition(x, y)
                             }
-                        },
-                        onPreviewChange = { x, y ->
-                            viewModel.onPreviewPosition(x, y)
+                        )
+
+                        // 显示点击错误提示（在棋盘上方）
+                        clickError?.let { error ->
+                            androidx.compose.material3.Card(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(16.dp)
+                                    .fillMaxWidth(0.8f),
+                                colors = androidx.compose.material3.CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                )
+                            ) {
+                                Text(
+                                    text = error,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
                         }
-                    )
+                    }
                 }
 
-                // 控制面板
+                // 控制面板（紧凑布局）
                 val currentScore by viewModel.currentScore.collectAsState()
 
                 GameControls(
