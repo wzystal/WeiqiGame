@@ -165,6 +165,7 @@ fun GameScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
+                            .padding(bottom = 8.dp)
                     ) {
                         GoBoard(
                             board = board,
@@ -193,8 +194,8 @@ fun GameScreen(
                             androidx.compose.material3.Card(
                                 modifier = Modifier
                                     .align(Alignment.TopCenter)
-                                    .padding(16.dp)
-                                    .fillMaxWidth(0.8f),
+                                    .padding(8.dp)
+                                    .fillMaxWidth(0.7f),
                                 colors = androidx.compose.material3.CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.errorContainer
                                 )
@@ -202,8 +203,8 @@ fun GameScreen(
                                 Text(
                                     text = error,
                                     color = MaterialTheme.colorScheme.onErrorContainer,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.padding(12.dp)
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(8.dp)
                                 )
                             }
                         }

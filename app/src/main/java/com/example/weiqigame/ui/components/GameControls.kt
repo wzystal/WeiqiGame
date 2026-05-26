@@ -51,7 +51,7 @@ fun GameControls(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)  // 减小垂直padding
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         // 回合指示和提示
         Row(
@@ -65,7 +65,7 @@ fun GameControls(
             // 玩家提示
             Text(
                 text = playerHint,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -80,12 +80,12 @@ fun GameControls(
             CaptureCounter(
                 stone = BoardState.BLACK,
                 count = blackCaptured,
-                label = "黑提子"
+                label = "黑"
             )
             CaptureCounter(
                 stone = BoardState.WHITE,
                 count = whiteCaptured,
-                label = "白提子"
+                label = "白"
             )
         }
 
@@ -93,52 +93,57 @@ fun GameControls(
 
         // 实时局势显示
         if (currentScore != null && gameStatus == GameStatus.PLAYING) {
-            Spacer(modifier = Modifier.height(8.dp))
             LiveScoreCard(score = currentScore)
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
         // 结算结果显示
         if (gameStatus == GameStatus.FINISHED && currentScore != null) {
-            Spacer(modifier = Modifier.height(8.dp))
             FinalScoreCard(score = currentScore)
-        }
-
-        // 提前结算按钮（只在游戏进行中显示）
-        if (gameStatus == GameStatus.PLAYING) {
-            Button(
-                onClick = onCalculateScore,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("提前结算")
-            }
-        }
-
-        // 重新开始按钮
-        if (gameStatus == GameStatus.FINISHED) {
             Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = onRestart,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("重新开始")
-            }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // 返回菜单按钮
-        OutlinedButton(
-            onClick = onBackToMenu,
-            modifier = Modifier.fillMaxWidth()
+        // 按钮区域
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("返回菜单")
+            // 提前结算按钮（只在游戏进行中显示）
+            if (gameStatus == GameStatus.PLAYING) {
+                Button(
+                    onClick = onCalculateScore,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary
+                    ),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text("提前结算", fontSize = 12.sp)
+                }
+            }
+
+            // 重新开始按钮
+            if (gameStatus == GameStatus.FINISHED) {
+                Button(
+                    onClick = onRestart,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text("重新开始", fontSize = 12.sp)
+                }
+            }
+
+            // 返回菜单按钮
+            OutlinedButton(
+                onClick = onBackToMenu,
+                modifier = Modifier.weight(1f),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+            ) {
+                Text("返回菜单", fontSize = 12.sp)
+            }
         }
     }
 }
@@ -151,24 +156,24 @@ private fun TurnIndicator(currentTurn: Int) {
     val isBlack = currentTurn == BoardState.BLACK
     val color = if (isBlack) Color.Black else Color.White
     val textColor = if (isBlack) Color.White else Color.Black
-    val label = if (isBlack) "黑方" else "白方"
+    val label = if (isBlack) "黑" else "白"
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         // 棋子图标
         Box(
             modifier = Modifier
-                .width(24.dp)
-                .height(24.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .width(16.dp)
+                .height(16.dp)
+                .clip(RoundedCornerShape(8.dp))
                 .background(color)
         )
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(4.dp))
 
         Text(
-            text = "$label 回合",
+            text = "$label",
             fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
+            fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurface
         )
     }
@@ -189,34 +194,27 @@ private fun CaptureCounter(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         // 棋子图标
         Box(
             modifier = Modifier
-                .width(20.dp)
-                .height(20.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .width(14.dp)
+                .height(14.dp)
+                .clip(RoundedCornerShape(7.dp))
                 .background(color)
         )
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(4.dp))
 
-        Column {
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "$count",
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        Text(
+            text = "$count",
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
@@ -231,43 +229,30 @@ private fun LiveScoreCard(score: ScoreResult) {
             containerColor = MaterialTheme.colorScheme.primaryContainer
         )
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "当前局势",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // 实时领先情况
-            Text(
                 text = score.getCurrentLeadDescription(),
-                fontSize = 16.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // 详细数据
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "⚫ ${score.blackScore.format(1)}目",
-                    fontSize = 12.sp,
+                    text = "⚫${score.blackScore.format(1)}",
+                    fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
-                    text = "⚪ ${score.whiteScore.format(1)}目",
-                    fontSize = 12.sp,
+                    text = "⚪${score.whiteScore.format(1)}",
+                    fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
@@ -293,17 +278,17 @@ private fun FinalScoreCard(score: ScoreResult) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             // 获胜方
             Text(
                 text = score.getWinDescription(),
-                fontSize = 20.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // 详细得分
             Row(
@@ -313,25 +298,20 @@ private fun FinalScoreCard(score: ScoreResult) {
                 // 黑方
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "黑方",
+                        text = "⚫",
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "${score.blackScore.format(1)}",
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "${score.blackScore.format(1)}目",
-                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "(实地${score.blackTerritory}+提子${score.blackCaptured})",
-                        fontSize = 10.sp
                     )
                 }
 
                 // VS
                 Text(
                     text = "VS",
-                    fontSize = 16.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.align(Alignment.CenterVertically)
                 )
@@ -339,18 +319,13 @@ private fun FinalScoreCard(score: ScoreResult) {
                 // 白方
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "白方",
+                        text = "⚪",
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "${score.whiteScore.format(1)}",
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "${score.whiteScore.format(1)}目",
-                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "(实地${score.whiteTerritory}+提子${score.whiteCaptured}+贴目${score.komi.format(1)})",
-                        fontSize = 10.sp
                     )
                 }
             }
