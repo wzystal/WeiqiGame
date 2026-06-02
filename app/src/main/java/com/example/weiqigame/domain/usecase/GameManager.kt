@@ -40,6 +40,10 @@ class GameManager(
     // 落子历史
     private val moves = mutableListOf<Move>()
 
+    // 最新落子位置（用于突出显示）
+    var lastMove: Pair<Int, Int>? = null
+        private set
+
     // 提子计数
     private var blackCapturedCount = 0
     private var whiteCapturedCount = 0
@@ -71,6 +75,7 @@ class GameManager(
         board = BoardState.create(boardSize)
         history.clear()
         moves.clear()
+        lastMove = null  // 重置最新落子位置
         blackCapturedCount = 0
         whiteCapturedCount = 0
         currentTurn = BoardState.BLACK  // 黑棋先行
@@ -121,6 +126,9 @@ class GameManager(
 
                 // 记录落子
                 moves.add(move.copy(captureCount = capturedCount))
+
+                // 更新最新落子位置
+                lastMove = Pair(x, y)
 
                 // 切换回合
                 currentTurn = board.getOpponent(currentTurn)

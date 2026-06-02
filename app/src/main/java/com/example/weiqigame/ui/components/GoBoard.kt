@@ -43,6 +43,7 @@ fun GoBoard(
     currentStone: Int,
     previewPosition: Pair<Int, Int>?,
     previewCaptures: List<Pair<Int, Int>>,
+    lastMove: Pair<Int, Int>?,
     isMyTurn: Boolean,
     modifier: Modifier = Modifier,
     onBoardClick: (Int, Int) -> Unit,
@@ -112,6 +113,13 @@ fun GoBoard(
 
             // 绘制所有已落棋子
             drawStones(board, paddingPx, gridSize)
+
+            // 绘制最新落子位置的突出显示
+            lastMove?.let { (x, y) ->
+                if (board.isValidPosition(x, y)) {
+                    drawLastMoveHighlight(x, y, paddingPx, gridSize)
+                }
+            }
 
             // 绘制预览棋子（手指按下位置）
             previewPosition?.let { (x, y) ->
@@ -298,6 +306,45 @@ private fun DrawScope.drawPreviewStone(
         color = stoneColor,
         radius = stoneRadius,
         center = Offset(centerX, centerY)
+    )
+}
+
+/**
+ * 绘制最新落子位置的突出显示
+ */
+private fun DrawScope.drawLastMoveHighlight(
+    x: Int,
+    y: Int,
+    padding: Float,
+    gridSize: Float
+) {
+    val centerX = padding + x * gridSize
+    val centerY = padding + y * gridSize
+    val radius = gridSize * 0.45f
+
+    // 绘制多层红色圆圈，增强视觉效果
+    // 外层粗圆圈
+    drawCircle(
+        color = Color.Red,
+        radius = radius,
+        center = Offset(centerX, centerY),
+        style = Stroke(width = 4f)
+    )
+    
+    // 内层细圆圈，形成对比
+    drawCircle(
+        color = Color.White,
+        radius = radius - 2f,
+        center = Offset(centerX, centerY),
+        style = Stroke(width = 2f)
+    )
+    
+    // 再次绘制红色圆圈，形成红白红的三层效果
+    drawCircle(
+        color = Color.Red,
+        radius = radius - 4f,
+        center = Offset(centerX, centerY),
+        style = Stroke(width = 2f)
     )
 }
 

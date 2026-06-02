@@ -61,6 +61,7 @@ fun GameScreen(
     val localError by viewModel.localError.collectAsState()
     val previewPosition by viewModel.previewPosition.collectAsState()
     val previewCaptures by viewModel.previewCaptures.collectAsState()
+    val lastMove by viewModel.lastMove.collectAsState()
     val isAIGameMode by viewModel.isAIGameMode.collectAsState()
     val aiDifficulty by viewModel.aiDifficulty.collectAsState()
     val scope = rememberCoroutineScope()
@@ -172,6 +173,7 @@ fun GameScreen(
                             currentStone = currentTurn,
                             previewPosition = previewPosition,
                             previewCaptures = previewCaptures,
+                            lastMove = lastMove,
                             isMyTurn = isMyTurn,
                             modifier = Modifier.fillMaxSize(),
                             onBoardClick = { x, y ->

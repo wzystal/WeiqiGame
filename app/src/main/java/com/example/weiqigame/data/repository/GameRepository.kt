@@ -68,6 +68,10 @@ class GameRepository(
     private val _currentScore = MutableStateFlow<ScoreResult?>(null)
     val currentScore: StateFlow<ScoreResult?> = _currentScore.asStateFlow()
 
+    // 最新落子位置（用于突出显示）
+    private val _lastMove = MutableStateFlow<Pair<Int, Int>?>(null)
+    val lastMove: StateFlow<Pair<Int, Int>?> = _lastMove.asStateFlow()
+
     // ========== 网络状态 ==========
 
     val connectionState: StateFlow<ConnectionState> = tcpConnection.connectionState
@@ -107,6 +111,7 @@ class GameRepository(
         _gameMode.value = GameMode.LOCAL
         gameManager.startNewGame(GameMode.LOCAL, boardSize)
         _gameStatus.value = GameStatus.PLAYING
+        _lastMove.value = null  // 重置最新落子位置
         updateGameState()
     }
 
@@ -128,6 +133,9 @@ class GameRepository(
         val result = gameManager.makeMove(x, y)
 
         if (result is MoveResult.Success) {
+            // 更新最新落子位置
+            _lastMove.value = Pair(x, y)
+            
             // 更新状态
             updateGameState()
 
@@ -317,6 +325,8 @@ class GameRepository(
         when (result) {
             is MoveResult.Success -> {
                 Log.d("GameRepository", "对方落子成功，提子数: ${result.capturedStones.size}")
+                // 更新最新落子位置
+                _lastMove.value = Pair(message.x, message.y)
                 // makeMove 已经自动切换了回合，updateGameState 会同步到 repository
                 updateGameState()
             }
@@ -340,6 +350,9 @@ class GameRepository(
         if (_gameStatus.value != GameStatus.PLAYING) {
             _gameStatus.value = gameManager.gameStatus
         }
+
+        // 同步最新落子位置
+        _lastMove.value = gameManager.lastMove
 
         // 同步提子数（getCaptureCount返回的是该颜色吃掉的对方棋子数）
         // blackCaptured = 黑方吃掉的白子数 = getCaptureCount(WHITE)

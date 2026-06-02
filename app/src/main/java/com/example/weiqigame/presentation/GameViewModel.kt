@@ -90,6 +90,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val connectionState: StateFlow<ConnectionState> = repository.connectionState
 
     /**
+     * 最新落子位置（用于突出显示）
+     */
+    val lastMove: StateFlow<Pair<Int, Int>?> = repository.lastMove
+
+    /**
      * 是否是本地玩家回合
      */
     val isMyTurn: StateFlow<Boolean> = combine(
