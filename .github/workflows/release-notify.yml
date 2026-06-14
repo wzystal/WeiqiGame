@@ -14,6 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout shared CI scripts
+        uses: actions/checkout@v4
+        with:
+          repository: wzystal/android-ci-scripts
+          path: _tools
+
+      - name: Prepare shared scripts
+        run: chmod +x _tools/*.sh
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -56,8 +65,7 @@ jobs:
             echo "PGYER_API_KEY 未配置，跳过蒲公英上传"
             exit 0
           fi
-          chmod +x scripts/pgyer_upload.sh
-          if INSTALL_URL=$(scripts/pgyer_upload.sh \
+          if INSTALL_URL=$(_tools/pgyer_upload.sh \
             -k "${PGYER_API_KEY}" \
             -d "Release ${{ steps.ver.outputs.tag }}" \
             app/build/outputs/apk/release/app-release.apk); then
@@ -74,20 +82,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          chmod +x scripts/concise_release_notes.sh
           BODY=$(gh release view "${{ steps.ver.outputs.tag }}" --json body -q .body || true)
-          printf '%s' "${BODY:-}" | scripts/concise_release_notes.sh > /tmp/release_notes.txt || echo "（暂无更新说明）" > /tmp/release_notes.txt
+          printf '%s' "${BODY:-}" | _tools/concise_release_notes.sh > /tmp/release_notes.txt || echo "（暂无更新说明）" > /tmp/release_notes.txt
 
       - name: Notify DingTalk
         if: steps.gh_release.outcome == 'success'
         env:
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
-          APP_NAME: 围棋对弈
         run: |
           if [[ -z "${DINGTALK_WEBHOOK}" ]]; then
             echo "DINGTALK_WEBHOOK 未配置，跳过钉钉通知"
             exit 0
           fi
+          APP_NAME=$(PROJECT_DIR="$GITHUB_WORKSPACE" _tools/read_app_name.sh)
 
           GITHUB_URL="https://github.com/${{ github.repository }}/releases/tag/${{ steps.ver.outputs.tag }}"
           PGYER_URL="${{ steps.pgyer.outputs.install_url }}"
