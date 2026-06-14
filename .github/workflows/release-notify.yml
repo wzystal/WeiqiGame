@@ -70,12 +70,13 @@ jobs:
 
       - name: Prepare release notes
         if: steps.gh_release.outcome == 'success'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           chmod +x scripts/concise_release_notes.sh
-          BODY=$(gh release view "${{ steps.ver.outputs.tag }}" --json body -q .body)
-          printf '%s' "$BODY" | scripts/concise_release_notes.sh > /tmp/release_notes.txt
+          BODY=$(gh release view "${{ steps.ver.outputs.tag }}" --json body -q .body || true)
+          printf '%s' "${BODY:-}" | scripts/concise_release_notes.sh > /tmp/release_notes.txt || echo "（暂无更新说明）" > /tmp/release_notes.txt
 
       - name: Notify DingTalk
         if: steps.gh_release.outcome == 'success'

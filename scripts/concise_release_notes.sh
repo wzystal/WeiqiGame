@@ -16,11 +16,11 @@ bullets=$(
     /^## What'"'"'s Changed/ { in_section=1; next }
     in_section && /^## / { exit }
     in_section && /^[*-] / { print }
-  ' <<< "$body" | head -n "$MAX_ITEMS" | sed -E 's/ by @[^ ]+( in .*)?$//'
+  ' <<< "$body" | head -n "$MAX_ITEMS" | sed -E 's/ by @[^ ]+( in .*)?$//' || true
 )
 
 if [[ -z "${bullets//[[:space:]]/}" ]]; then
-  bullets=$(grep -E '^[*-] ' <<< "$body" | head -n "$MAX_ITEMS" | sed -E 's/ by @[^ ]+( in .*)?$//')
+  bullets=$(grep -E '^[*-] ' <<< "$body" | head -n "$MAX_ITEMS" | sed -E 's/ by @[^ ]+( in .*)?$//' || true)
 fi
 
 if [[ -z "${bullets//[[:space:]]/}" ]]; then
