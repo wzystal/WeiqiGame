@@ -73,6 +73,11 @@ jobs:
         env:
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
         run: |
+          if [[ -z "${DINGTALK_WEBHOOK}" ]]; then
+            echo "DINGTALK_WEBHOOK 未配置，跳过钉钉通知"
+            exit 0
+          fi
+
           GITHUB_URL="https://github.com/${{ github.repository }}/releases/tag/${{ steps.ver.outputs.tag }}"
           PGYER_URL="${{ steps.pgyer.outputs.install_url }}"
           SKIP_PGYER="${{ steps.pgyer.outputs.skip }}"
