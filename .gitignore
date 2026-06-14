@@ -4,6 +4,11 @@ build/
 
 # Local configuration file (sdk path, etc)
 local.properties
+keystore.properties
+signing/release.jks
+signing/secrets.local.properties
+.build-and-install.stamp
+.build-and-install-crash.log
 
 # Log/OS Files
 *.log
