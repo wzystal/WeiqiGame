@@ -68,10 +68,20 @@ jobs:
             exit 0
           fi
 
+      - name: Prepare release notes
+        if: steps.gh_release.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/concise_release_notes.sh
+          BODY=$(gh release view "${{ steps.ver.outputs.tag }}" --json body -q .body)
+          printf '%s' "$BODY" | scripts/concise_release_notes.sh > /tmp/release_notes.txt
+
       - name: Notify DingTalk
         if: steps.gh_release.outcome == 'success'
         env:
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          APP_NAME: 围棋对弈
         run: |
           if [[ -z "${DINGTALK_WEBHOOK}" ]]; then
             echo "DINGTALK_WEBHOOK 未配置，跳过钉钉通知"
@@ -82,33 +92,49 @@ jobs:
           PGYER_URL="${{ steps.pgyer.outputs.install_url }}"
           SKIP_PGYER="${{ steps.pgyer.outputs.skip }}"
 
+          post_dingtalk() {
+            local payload_file response
+            payload_file=$(mktemp)
+            cat > "$payload_file"
+            response=$(curl -sS --fail-with-body --retry 3 --retry-all-errors \
+              -X POST "$DINGTALK_WEBHOOK" \
+              -H "Content-Type: application/json" \
+              -d @"$payload_file")
+            rm -f "$payload_file"
+            echo "$response"
+            if ! echo "$response" | jq -e '.errcode == 0' >/dev/null; then
+              echo "::error::钉钉推送失败: $response"
+              exit 1
+            fi
+          }
+
           if [[ "$SKIP_PGYER" == "true" || -z "$PGYER_URL" ]]; then
             jq -n \
+              --arg app "$APP_NAME" \
               --arg repo "${{ github.repository }}" \
               --arg tag "${{ steps.ver.outputs.tag }}" \
               --arg url "$GITHUB_URL" \
+              --rawfile notes /tmp/release_notes.txt \
               '{
                 msgtype: "markdown",
                 markdown: {
                   title: "Release 构建成功",
-                  text: ("### ✅ WeiqiGame Release APK\n\n**仓库：** " + $repo + "\n\n**版本：** " + $tag + "\n\n**下载：** [GitHub Release](" + $url + ")\n\n> 手机下载 app-release.apk 安装")
+                  text: ("### ✅ " + $app + " Release 新版本\n\n**仓库：** " + $repo + "\n\n**版本：** " + $tag + "\n\n**更新说明：**\n\n" + $notes + "\n\n[查看完整 Release 说明](" + $url + ")\n\n**下载：** [GitHub Release](" + $url + ")\n\n> 手机下载 app-release.apk 安装")
                 }
-              }' | curl -sS --fail-with-body --retry 3 --retry-all-errors -X POST "$DINGTALK_WEBHOOK" \
-                -H "Content-Type: application/json" \
-                -d @-
+              }' | post_dingtalk
           else
             jq -n \
+              --arg app "$APP_NAME" \
               --arg repo "${{ github.repository }}" \
               --arg tag "${{ steps.ver.outputs.tag }}" \
-              --arg github_url "$GITHUB_URL" \
+              --arg release_url "$GITHUB_URL" \
               --arg pgyer_url "$PGYER_URL" \
+              --rawfile notes /tmp/release_notes.txt \
               '{
                 msgtype: "markdown",
                 markdown: {
                   title: "Release 构建成功",
-                  text: ("### ✅ WeiqiGame Release APK\n\n**仓库：** " + $repo + "\n\n**版本：** " + $tag + "\n\n**国内下载（推荐）：** [蒲公英安装页](" + $pgyer_url + ")\n\n**GitHub：** [Release 页](" + $github_url + ")\n\n> 国内用户优先使用蒲公英链接，无需翻墙")
+                  text: ("### ✅ " + $app + " Release 新版本\n\n**仓库：** " + $repo + "\n\n**版本：** " + $tag + "\n\n**更新说明：**\n\n" + $notes + "\n\n[查看完整 Release 说明](" + $release_url + ")\n\n**下载：** [蒲公英安装页](" + $pgyer_url + ")")
                 }
-              }' | curl -sS -X POST "$DINGTALK_WEBHOOK" \
-                -H "Content-Type: application/json" \
-                -d @-
+              }' | post_dingtalk
           fi
